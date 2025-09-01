@@ -25,7 +25,10 @@
   display: flex;
   gap: 1rem;
 }
-
+.navigationItem {
+  display: flex;
+  align-items: center; 
+}
 .navigation li a {
   text-decoration: none;
   color: white;
