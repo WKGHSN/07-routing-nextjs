@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { fetchNotes } from "@/lib/api";
 import { useDebounce } from "use-debounce";
 import type { Note, NoteTag } from "@/types/note";
@@ -20,33 +20,30 @@ type FetchNotesResponse = {
   perPage: number;
   totalPages: number;
   totalNotes?: number;
-  tag?: NoteTag;
 };
 
-type Props = {
-  initialData: FetchNotesResponse;
-  tag?: NoteTag;
-};
+interface Props {
+  initialTag?: NoteTag;
+  initialPage?: number;
+  initialSearch?: string;
+}
 
-export default function NotesClient({ initialData, tag }: Props) {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
+export default function NotesClient({ initialTag, initialPage = 1, initialSearch = "" }: Props) {
+  const [page, setPage] = useState(initialPage);
+  const [search, setSearch] = useState(initialSearch);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [debouncedSearch] = useDebounce(search, 500);
-  const queryClient = useQueryClient();
 
-  const { data, isPending, isError, isLoading } = useQuery<FetchNotesResponse>({
-    queryKey: ["notes", page, debouncedSearch, tag],
+  const { data, isLoading, isError } = useQuery<FetchNotesResponse>({
+    queryKey: ["notes", page, debouncedSearch, initialTag],
     queryFn: () =>
       fetchNotes({
         page,
         perPage: 12,
         search: debouncedSearch,
-        tag: tag,
+        tag: initialTag,
       }),
-    initialData,
-    placeholderData: initialData,
   });
 
   const handleSearchChange = (newSearch: string) => {
@@ -54,39 +51,9 @@ export default function NotesClient({ initialData, tag }: Props) {
     setPage(1);
   };
 
-  if (isError) {
-    return (
-      <div className={css.app}>
-        <div className={css.toolbar}>
-          <SearchBox value={search} onChange={handleSearchChange} />
-          <button className={css.button} onClick={() => setIsModalOpen(true)}>
-            Create note +
-          </button>
-        </div>
-        <ErrorMessage />
-        <button
-          className={css.button}
-          onClick={() => queryClient.invalidateQueries({ queryKey: ["notes"] })}
-        >
-          Try again ...
-        </button>
-      </div>
-    );
-  }
+  if (isError) return <ErrorMessage />;
 
-  if (isLoading) {
-    return (
-      <div className={css.app}>
-        <header className={css.toolbar}>
-          <SearchBox value={search} onChange={handleSearchChange} />
-          <button className={css.button} onClick={() => setIsModalOpen(true)}>
-            Create note +
-          </button>
-        </header>
-        <Loader />
-      </div>
-    );
-  }
+  if (isLoading) return <Loader />;
 
   const notes = data?.notes ?? [];
   const totalPages = data?.totalPages ?? 1;
@@ -96,22 +63,14 @@ export default function NotesClient({ initialData, tag }: Props) {
       <div className={css.toolbar}>
         <SearchBox value={search} onChange={handleSearchChange} />
         {totalPages > 1 && (
-          <Pagination
-            pageCount={totalPages}
-            currentPage={page}
-            onPageChange={setPage}
-          />
+          <Pagination pageCount={totalPages} currentPage={page} onPageChange={setPage} />
         )}
         <button className={css.button} onClick={() => setIsModalOpen(true)}>
           Create note +
         </button>
       </div>
 
-      {notes.length === 0 && isPending ? (
-        <Loader />
-      ) : (
-        <NoteList notes={notes} />
-      )}
+      <NoteList notes={notes} />
 
       {isModalOpen && (
         <Modal onClose={() => setIsModalOpen(false)}>
