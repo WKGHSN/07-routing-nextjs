@@ -1,41 +1,62 @@
-import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
-import getQueryClient from "@/lib/getQueryClient";
-import { fetchNotes } from "@/lib/api";
-import NotesClient from "./Notes.client";
-import { NoteTag } from "@/types/note";
+import { notFound } from "next/navigation";
+import { QueryClient, HydrationBoundary, dehydrate } from "@tanstack/react-query";
 
-interface NotesPageProps {
-  params: { slug?: string[] };
-  searchParams?: { page?: string; q?: string };
+import NotesPageClient from "./Notes.client";
+import { fetchNotes } from "@/lib/api";
+import type { NoteTag } from "@/types/note";
+import { TAGS } from "@/types/note";
+
+interface NotesByCategoryParams {
+  slug: string[];
 }
 
-export default async function NotesPage({
+export default async function NotesByCategory({
   params,
-  searchParams,
-}: NotesPageProps) {
-  const tagParam = params?.slug?.[0] || "All";
-  const tag: NoteTag | undefined = tagParam === "All" ? undefined : (tagParam as NoteTag);
+}: {
+  params: Promise<NotesByCategoryParams>;
+}) {
+  const { slug } = await params;
+  const filter = slug[0];
 
-  const page = Number(searchParams?.page ?? 1);
-  const search = searchParams?.q ?? "";
+  const queryClient = new QueryClient();
 
-  const queryClient = getQueryClient();
+  const isNoteTag = (value: string): value is NoteTag =>
+    TAGS.includes(value as NoteTag);
 
-  // Серверний prefetch
-  await queryClient.prefetchQuery({
-    queryKey: ["notes", page, search, tag],
-    queryFn: () =>
-      fetchNotes({
-        page,
-        perPage: 12,
-        search,
-        tag,
-      }),
-  });
+  if (filter === "all") {
+    await queryClient.prefetchQuery({
+      queryKey: ["notes", { page: 1, perPage: 12 }],
+      queryFn: () =>
+        fetchNotes({
+          page: 1,
+          perPage: 12,
+        }),
+    });
 
-  return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <NotesClient initialTag={tag} initialPage={page} initialSearch={search} />
-    </HydrationBoundary>
-  );
+    return (
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <NotesPageClient />
+      </HydrationBoundary>
+    );
+  }
+
+  if (isNoteTag(filter)) {
+    await queryClient.prefetchQuery({
+      queryKey: ["notes", { page: 1, perPage: 12, tag: filter }],
+      queryFn: () =>
+        fetchNotes({
+          page: 1,
+          perPage: 12,
+          tag: filter,
+        }),
+    });
+
+    return (
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <NotesPageClient tag={filter} />
+      </HydrationBoundary>
+    );
+  }
+
+  notFound();
 }

@@ -1,3 +1,18 @@
+export type NoteTag =
+  | "Todo"
+  | "Work"
+  | "Personal"
+  | "Meeting"
+  | "Shopping";
+
+export const TAGS: NoteTag[] = [
+  "Todo",
+  "Work",
+  "Personal",
+  "Meeting",
+  "Shopping",
+];
+
 export interface Note {
   id: string;
   title: string;
@@ -7,11 +22,8 @@ export interface Note {
   updatedAt: string;
 }
 
-export type NoteTag = "Todo" | "Work" | "Personal" | "Meeting" | "Shopping";
-
-// export interface FetchNotesResponse {
-//   notes: Note[];
-//   page: number;
-//   perPage: number;
-//   totalPages: number;
-// }
+export interface CreateNoteParams {
+  title: string;
+  content: string;
+  tag: NoteTag;
+}
